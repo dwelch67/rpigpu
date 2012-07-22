@@ -21,7 +21,9 @@ not thumb2 extensions), the thumb binary is disassembled, as it is
 disassembled raspberry pi gpu machine code is created in its place.
 
 This is not beginner stuff in any way, this is not a generic C compiler
-for the Raspberry Pi gpu.  So far every example has required more work
+for the Raspberry Pi gpu.  This is for people are capable of writing
+their programs in both thumb MACHINE CODE and gnu MACHINE CODE but
+want to save some time.  So far every example has required more work
 on the translator.  It took three clean slate starts to get this far.  I
 just realized that I have been treating immediates as unsigned when they
 are signed, so I have to go back through and fix a bunch of stuff.  For
