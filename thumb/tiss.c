@@ -98,6 +98,8 @@ char p_name[0x20][8]=
 #define P_ASR 0x1E
 #define P_ABS 0x1F
 
+#define P_SIZE 0x20
+
 //(define-table q [
 //"mov", "add", "mul", "sub",
 //"mvn", "cmp", "btst", "extu",
@@ -122,6 +124,7 @@ char p_name[0x20][8]=
 #define Q_LSR 0xD
 #define Q_LSL 0xE
 #define Q_ASR 0xF
+#define Q_SIZE 0x10
 
 
 char cc_name[0x10][4]=
@@ -165,11 +168,28 @@ char cc_name[0x10][4]=
 //-------------------------------------------------------------------
 unsigned int adreg ( unsigned int rx )
 {
+    //not really used yet, when this gets hit you need to comment
+    //the changing printf...printf("//changing  after validating
+    //it is doing what it should
     switch(rx)
     {
+        case 14:
+        {
+            printf("changing r%u",rx);
+            rx=26;
+            printf(", to r%u\n",rx);
+            break;
+        }
+        case 26:
+        {
+            printf("changing r%u",rx);
+            rx=14;
+            printf(", to r%u\n",rx);
+            break;
+        }
         case 29:
         {
-            printf("//changing r%u\n",rx);
+            printf("changing r%u",rx);
             rx=13;
             printf(", to r%u\n",rx);
             break;
@@ -178,7 +198,7 @@ unsigned int adreg ( unsigned int rx )
         {
             if(rx>=16)
             {
-                printf("changing r%u\n",rx);
+                printf("changing r%u",rx);
                 rx=12;
                 printf(", to r%u\n",rx);
             }
@@ -196,6 +216,31 @@ unsigned int addr2doff ( unsigned int addr )
 unsigned int doff2addr ( unsigned int doff )
 {
     return(doff<<1);
+}
+//-------------------------------------------------------------------
+unsigned int p2q ( unsigned int p )
+{
+    switch(p)
+    {
+        case P_MOV  : return(Q_MOV  );
+        case P_ADD  : return(Q_ADD  );
+        case P_MUL  : return(Q_MUL  );
+        case P_SUB  : return(Q_SUB  );
+        case P_MVN  : return(Q_MVN  );
+        case P_CMP  : return(Q_CMP  );
+        case P_BTST : return(Q_BTST );
+        case P_EXTU : return(Q_EXTU );
+        case P_BSET : return(Q_BSET );
+        case P_BCLR : return(Q_BCLR );
+        case P_BCHG : return(Q_BCHG );
+        case P_ADDS8: return(Q_ADDS8);
+        case P_EXTS : return(Q_EXTS );
+        case P_LSR  : return(Q_LSR  );
+        case P_LSL  : return(Q_LSL  );
+        case P_ASR  : return(Q_ASR  );
+        //default: return(Q_SIZE);
+    }
+    return(Q_SIZE);
 }
 //-------------------------------------------------------------------
 #include "diss.c"
@@ -247,16 +292,29 @@ unsigned int build_p5d16u ( unsigned int p, unsigned int rd, unsigned int u, uns
     return(3);
 }
 //-------------------------------------------------------------------
-unsigned int build_pc5dau ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, unsigned int u, unsigned short *out )
+unsigned int build_pc5dai ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, unsigned int i, unsigned short *out )
 {
     //1100 00pp pppd dddd  aaaa accc c1ii iiii      "; %s{p}%s{c} r%i{d}, r%i{a}, #%i{i}"
     p&=0x1F;
     cc&=0xF;
     rd&=0x1F;
     ra&=0x1F;
-    u&=0x3F;
+    i&=0x3F;
     out[0]=0xC000|(p<<5)|rd;
-    out[1]=0x0040|(ra<<11)|(cc<<7)|u;
+    out[1]=0x0040|(ra<<11)|(cc<<7)|i;
+    return(2);
+}
+//-------------------------------------------------------------------
+unsigned int build_pc5dab ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, unsigned int rb, unsigned short *out )
+{
+    //1100 00pp pppd dddd   aaaa accc c00b bbbb                           "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
+    p&=0x1F;
+    cc&=0xF;
+    rd&=0x1F;
+    ra&=0x1F;
+    rb&=0x1F;
+    out[0]=0xC000|(p<<5)|rd;
+    out[1]=0x0000|(ra<<11)|(cc<<7)|rb;
     return(2);
 }
 //-------------------------------------------------------------------
@@ -268,6 +326,10 @@ void pc3 ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, un
     ra&=0x1F;
     rb&=0x1F;
 
+    rd=adreg(rd);
+    ra=adreg(ra);
+    rb=adreg(rb);
+
     if((rd==ra)&&(cc==CC_UN))
     {
         //010p pppp ssss dddd                                               "; %s{p} r%i{d}, r%i{s}"
@@ -277,27 +339,41 @@ void pc3 ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, un
     else
     {
         //1100 00pp pppd dddd   aaaa accc c00b bbbb                           "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
-        output[doff][0]=2;
-        output[doff][1]=0xC000|(p<<5)|rd;
-        output[doff][2]=0x0000|(ra<<11)|(cc<<7)|rb;
+        output[doff][0]=build_pc5dab(p,cc,rd,ra,rb,&output[doff][1]); //uses 2
+        //output[doff][0]=2;
+        //output[doff][1]=0xC000|(p<<5)|rd;
+        //output[doff][2]=0x0000|(ra<<11)|(cc<<7)|rb;
     }
     show_output();
 }
 //-------------------------------------------------------------------
 void pc2u ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, unsigned int u )
 {
+    unsigned int x;
+    unsigned int q;
+
     p&=0x1F;
     cc&=0xF;
     rd&=0x1F;
     ra&=0x1F;
 
+    rd=adreg(rd);
+    ra=adreg(ra);
 
-    if((u&0x1F)==u)
+    q=p2q(p);
+    if(((u&(~0x1F))==0)&&(rd<16)&&(cc==CC_UN)&&(q<Q_SIZE))
+    {
+        //011q qqqu uuuu dddd                                               "; %s{q} r%i{d}, #%i{u}"
+        output[doff][0]=1;
+        output[doff][1]=0x6000|(q<<9)|(u<<4)|(rd);
+    }
+    else
+    if(((u&(~0x1F))==0)||((u&(~0x1F))==((~0)&(~0x1F))))
     {
         //1100 00pp pppd dddd  aaaa accc c1ii iiii                           "; %s{p}%s{c} r%i{d}, r%i{a}, #%i{i}"
         output[doff][0]=2;
         output[doff][1]=0xC000|(p<<5)|rd;
-        output[doff][2]=0x0040|(ra<<11)|(cc<<7)|u;
+        output[doff][2]=0x0040|(ra<<11)|(cc<<7)|(u&0x3F);
     }
     else
     if(((u&0x7F)==u)&&(rd==ra))
@@ -309,11 +385,30 @@ void pc2u ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, u
     }
     else
     {
+        printf("untested\n"); //remove once used
+        x=0;
+        output[doff][0]=x;
+        //desired rd = ra op u
+        //mov(rd,ra)
+        //010p pppp ssss dddd                                               "; %s{p} r%i{d}, r%i{s}"
+        if((rd<16)&&(ra<16))
+        {
+            printf("untested\n"); //remove once used
+            x++; output[doff][x]=0x4000|(P_MOV<<8)|(ra<<4)|rd;
+        }
+        else
+        {
+            printf("untested\n"); //remove once used
+            x+=build_pc5dab(P_MOV,CC_UN,rd,ra,ra,&output[doff][x+1]);
+        }
+        //mov(ra,u);
+        //at this point because it needs to be a 32 bit, no shortcut
+        x+=build_p5d16u(P_MOV,ra,u,&output[doff][x+1]);
+        //opcc(rd,ra);
+        x+=build_pc5dab(p,cc,rd,ra,ra,&output[doff][x+1]);
+        //limit check x?  It should be okay
+        output[doff][0]=x;
     }
-
-
-
-
     show_output();
 }
 //-------------------------------------------------------------------
@@ -328,7 +423,18 @@ void pop ( unsigned int rd )
           //0010 r6
           //0100 r16
           //0110 r24
-    //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
+
+    //this is arm/thumb specific 16 registers, r16 on the gpu is trashed
+    //so wont work for other architectures.
+    if(rd>15)
+    {
+        //if(rd!=26)
+        {
+            fprintf(stderr,"There is no r%u to pop\n",rd);
+            printf("There is no r%u to pop\n",rd);
+        }
+    }
+
     switch(rd)
     {
         case 0:
@@ -355,30 +461,6 @@ void pop ( unsigned int rd )
             output[doff][x+1]=0x0220;
             break;
         }
-        case 16:
-        {
-            x=output[doff][0];
-            output[doff][0]+=1;
-            if(output[doff][0]>=MAXOUT)
-            {
-                fprintf(stderr,"0x%06X : maxout too big %u\n",addr,output[doff][0]);
-                exit(1);
-            }
-            output[doff][x+1]=0x0240;
-            break;
-        }
-        case 24:
-        {
-            x=output[doff][0];
-            output[doff][0]+=1;
-            if(output[doff][0]>=MAXOUT)
-            {
-                fprintf(stderr,"0x%06X : maxout too big %u\n",addr,output[doff][0]);
-                exit(1);
-            }
-            output[doff][x+1]=0x0260;
-            break;
-        }
         default:
         {
             x=output[doff][0];
@@ -391,8 +473,10 @@ void pop ( unsigned int rd )
             //pop(r16)
             output[doff][x+1]=0x0240;
             //mov(rd,r16);
-            output[doff][x+2]=0xC000|(P_MOV<<5)|rd;
-            output[doff][x+3]=0x0000|(16<<11)|(CC_UN<<7)|(16);
+            //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
+            build_pc5dab(P_MOV,CC_UN,rd,16,16,&output[doff][x+2]); //takes 2
+            //output[doff][x+2]=0xC000|(P_MOV<<5)|rd;
+            //output[doff][x+3]=0x0000|(16<<11)|(CC_UN<<7)|(16);
         }
     }
 }
@@ -409,7 +493,17 @@ void push ( unsigned int rs )
           //1100 r16
           //1110 r24
 
-    //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
+    //this is arm/thumb specific 16 registers, r16 on the gpu is trashed
+    //so wont work for other architectures.
+    if(rs>15)
+    {
+        if(rs!=26)
+        {
+            fprintf(stderr,"There is no r%u to push\n",rs);
+            printf("There is no r%u to push\n",rs);
+        }
+    }
+
     x=output[doff][0];
     output[doff][0]+=3;
     if(output[doff][0]>=MAXOUT)
@@ -418,29 +512,12 @@ void push ( unsigned int rs )
         exit(1);
     }
     //mov(r16,rs);
-    output[doff][x+1]=0xC000|(P_MOV<<5)|16;
-    output[doff][x+2]=0x0000|(rs<<11)|(CC_UN<<7)|(rs);
+    //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
+    build_pc5dab(P_MOV,CC_UN,16,rs,rs,&output[doff][x+1]); //takes 2
+    //output[doff][x+1]=0xC000|(P_MOV<<5)|16;
+    //output[doff][x+2]=0x0000|(rs<<11)|(CC_UN<<7)|(rs);
     //push(r16)
     output[doff][x+3]=0x02C0;
-}
-//-------------------------------------------------------------------
-void pushl ( void )
-{
-    unsigned int x;
-//0000 0010 1bb0 0000                                               "; push r%d{b*8}"
-//0000 0010 0bb0 0000                                               "; pop  r%d{b*8}"
-//0000 0011 1bb0 0000                                               "; pushl r%d{b*8}"
-//0000 0011 0bb0 0000                                               "; popl  r%d{b*8}"
-    //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
-    x=output[doff][0];
-    output[doff][0]+=1;
-    if(output[doff][0]>=MAXOUT)
-    {
-        fprintf(stderr,"0x%06X : maxout too big %u\n",addr,output[doff][0]);
-        exit(1);
-    }
-    //pushl(r16)  dont care what r16 is
-    output[doff][x+1]=0x03C0;
 }
 //-------------------------------------------------------------------
 void tst ( unsigned int ra, unsigned int rb )
@@ -448,25 +525,23 @@ void tst ( unsigned int ra, unsigned int rb )
     //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
     //1100 00pp pppd dddd   aaaa accc c1ii iiii    "; %s{p}%s{c} r%i{d}, r%i{a}, #%i{i}"
     output[doff][0]=4;
-    output[doff][1]=0xC000|(P_AND<<5)|22;
-    output[doff][2]=0x0000|(ra<<11)|(CC_UN<<7)|rb;
-    output[doff][3]=0xC000|(P_CMP<<5)|22;
-    output[doff][4]=0x0040|(22<<11)|(CC_UN<<7)|0;
+    build_pc5dab(P_MOV,CC_UN,22,ra,rb,&output[doff][1]); //takes 2
+    //output[doff][1]=0xC000|(P_AND<<5)|22;
+    //output[doff][2]=0x0000|(ra<<11)|(CC_UN<<7)|rb;
+    build_pc5dai(P_CMP,CC_UN,22,22,0,&output[doff][3]); //takes 2
+    //output[doff][3]=0xC000|(P_CMP<<5)|22;
+    //output[doff][4]=0x0040|(22<<11)|(CC_UN<<7)|0;
     show_output();
 }
 //-------------------------------------------------------------------
-void movi ( unsigned int reg, unsigned int data )
+void movi ( unsigned int rd, unsigned int data )
 {
-//#define movi(reg, imm)      emit3(0xe800|(0x0<<5)|(reg), (imm)&0xffff, ((imm)>>16)&0xffff)
-//1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu
-    reg=adreg(reg);
-    if(pass==0)
-    {
-        output[doff][0]=3;
-        output[doff][1]=0xE800|(0x00<<5)|reg;
-        output[doff][2]=(data&0xFFFF);
-        output[doff][3]=(data>>16)&0xFFFF;
-    }
+    rd=adreg(rd);
+    //1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu
+    output[doff][0]=build_p5d16u(P_MOV,rd,data,&output[doff][1]); //takes 3
+    //output[doff][1]=0xE800|(0x00<<5)|reg;
+    //output[doff][2]=(data&0xFFFF);
+    //output[doff][3]=(data>>16)&0xFFFF;
     show_output();
 }
 //-------------------------------------------------------------------
@@ -474,6 +549,7 @@ void br ( unsigned int rs )
 {
     //GOOD LUCK!
 
+    rs=adreg(rs);
     //0000 0000 010d dddd                                               "; b r%i{d}"
     output[doff][0]=1;
     output[doff][1]=0x0040|rs;
@@ -1595,6 +1671,7 @@ int main ( int argc, char *argv[] )
                 rn=(inst>>3)&7;
                 rb=(inst>>6)&7;
                 printf("subs r%u,r%u,#0x%X\n",rd,rn,rb);
+                pc2u(P_SUB,CC_UN,rd,rn,rb);
                 continue;
             }
 
@@ -1625,6 +1702,7 @@ int main ( int argc, char *argv[] )
                 rb=inst&0x7F;
                 rb<<=2;
                 printf("sub SP,#0x%02X\n",rb);
+                pc2u(P_SUB,CC_UN,13,13,rb);
                 continue;
             }
 
