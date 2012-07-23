@@ -525,7 +525,7 @@ void tst ( unsigned int ra, unsigned int rb )
     //1100 00pp pppd dddd   aaaa accc c00b bbbb    "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
     //1100 00pp pppd dddd   aaaa accc c1ii iiii    "; %s{p}%s{c} r%i{d}, r%i{a}, #%i{i}"
     output[doff][0]=4;
-    build_pc5dab(P_MOV,CC_UN,22,ra,rb,&output[doff][1]); //takes 2
+    build_pc5dab(P_AND,CC_UN,22,ra,rb,&output[doff][1]); //takes 2
     //output[doff][1]=0xC000|(P_AND<<5)|22;
     //output[doff][2]=0x0000|(ra<<11)|(CC_UN<<7)|rb;
     build_pc5dai(P_CMP,CC_UN,22,22,0,&output[doff][3]); //takes 2
@@ -534,14 +534,32 @@ void tst ( unsigned int ra, unsigned int rb )
     show_output();
 }
 //-------------------------------------------------------------------
-void movi ( unsigned int rd, unsigned int data )
+void movi ( unsigned int rd, unsigned int u )
 {
     rd=adreg(rd);
-    //1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu
-    output[doff][0]=build_p5d16u(P_MOV,rd,data,&output[doff][1]); //takes 3
-    //output[doff][1]=0xE800|(0x00<<5)|reg;
-    //output[doff][2]=(data&0xFFFF);
-    //output[doff][3]=(data>>16)&0xFFFF;
+
+    //011q qqqu uuuu dddd                                               "; %s{q} r%i{d}, #%i{u}"
+    if((rd<16)&&((u&0x1F)==u))
+    {
+        output[doff][0]=1;
+        output[doff][1]=0x6000|(Q_MOV<<9)|(u<<4)|rd;
+    }
+    else
+    if((u&0x7F)==u)
+    {
+        //1011 00pp pppd dddd  iiii iiii iiii iiii                           "; %s{p} r%i{d}, #0x%04x{i}"
+        output[doff][0]=2;
+        output[doff][1]=0xB000|(P_MOV<<5)|rd;
+        output[doff][2]=u;
+    }
+    else
+    {
+        //1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu
+        output[doff][0]=build_p5d16u(P_MOV,rd,u,&output[doff][1]); //takes 3
+        //output[doff][1]=0xE800|(0x00<<5)|reg;
+        //output[doff][2]=(data&0xFFFF);
+        //output[doff][3]=(data>>16)&0xFFFF;
+    }
     show_output();
 }
 //-------------------------------------------------------------------
