@@ -249,6 +249,11 @@ void diss ( void )
             p=(inst>>5)&0x1F;
             rd=inst&0x1F;
             u=inst2;
+            if(u&0x8000)
+            {
+                printf("SIGEXT ");
+                u|=0xFFFF0000;
+            }
             printf("%s r%u,0x%X\n",p_name[p],rd,u);
             x++; dissadd+=2;
             continue;
@@ -282,6 +287,11 @@ void diss ( void )
                 ra=(inst2>>11)&0x1F;
                 cc=(inst2>>7)&0xF;
                 u=inst2&0x3F;
+                if(u&0x20)
+                {
+                    printf("SIGEXT ");
+                    u|=(~0)<<6;
+                }
                 printf("%s%s r%u,r%u,0x%X\n",p_name[p],cc_name[cc],rd,ra,u);
                 x++; dissadd+=2;
                 continue;

@@ -57,6 +57,13 @@ that we are used to with the stock gpu firmware.
 
 So starting with the blinkers then the uarts and eventually a bootloader
 these programs are progressively helping me develop the translator.
+Bootloader01 is working both with gcc and llvm as compilers.  I dont
+know if it is sad or funny that when things dont work you assume it
+is the translator, put time in to debugging to find that the C code
+being compiled then translated has the bug (forgot to setup the rx
+gpio pin).  It didnt help that I was using a bootloader written in asm
+which had already setup the uart and pins correctly so the fact that
+the test program didnt, wasnt standing out as a problem.
 
 If you do nothing else check out the tinyasm/asm.c file in the above
 repo.  It a mixture of pure genius and mad scientist.  I love it, I may
