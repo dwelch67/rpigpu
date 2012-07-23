@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define MAXDATA 0x1000
-#define MAXOUT 16
+#define MAXOUT 32
 
 unsigned short data[MAXDATA];
 unsigned char hit[MAXDATA];
@@ -126,6 +126,27 @@ char p_name[0x20][8]=
 #define Q_ASR 0xF
 #define Q_SIZE 0x10
 
+char q_name[0x10][8]=
+{
+"mov",
+"add",
+"mul",
+"sub",
+"mvn",
+"cmp",
+"btst",
+"extu",
+"bset",
+"bclr",
+"bchg",
+"adds8",
+"exts",
+"lsr",
+"lsl",
+"asr"
+};
+
+
 
 char cc_name[0x10][4]=
 {
@@ -173,6 +194,13 @@ unsigned int adreg ( unsigned int rx )
     //it is doing what it should
     switch(rx)
     {
+        case 13:
+        {
+            printf("//changing r%u",rx);
+            rx=29;
+            printf(", to r%u\n",rx);
+            break;
+        }
         case 14:
         {
             printf("changing r%u",rx);
@@ -318,6 +346,16 @@ unsigned int build_pc5dab ( unsigned int p, unsigned int cc, unsigned int rd, un
     return(2);
 }
 //-------------------------------------------------------------------
+unsigned int build_q4d5u ( unsigned int q, unsigned int rd, unsigned int u, unsigned short *out)
+{
+    //011q qqqu uuuu dddd                                               "; %s{q} r%i{d}, #%i{u}"
+    q&=0xF;
+    rd&=0xF;
+    u&=0x1F;
+    out[0]=0x6000|(q<<9)|(u<<4)|rd;
+    return(1);
+}
+//-------------------------------------------------------------------
 void pc3 ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, unsigned int rb )
 {
     p&=0x1F;
@@ -361,7 +399,7 @@ void pc2u ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, u
     ra=adreg(ra);
 
     q=p2q(p);
-    if(((u&(~0x1F))==0)&&(rd<16)&&(cc==CC_UN)&&(q<Q_SIZE))
+    if(((u&(~0x1F))==0)&&(rd<16)&&(cc==CC_UN)&&(q<Q_SIZE)&&(rd==ra))
     {
         //011q qqqu uuuu dddd                                               "; %s{q} r%i{d}, #%i{u}"
         output[doff][0]=1;
@@ -410,6 +448,28 @@ void pc2u ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, u
         output[doff][0]=x;
     }
     show_output();
+}
+//-------------------------------------------------------------------
+void poppc ( void )
+{
+    unsigned int x;
+//0000 0010 0bb0 0000                                               "; pop  r%d{b*8}"
+          //0100 r16
+          //0110 r24
+
+
+    x=output[doff][0];
+    output[doff][0]+=2;
+    if(output[doff][0]>=MAXOUT)
+    {
+        fprintf(stderr,"0x%06X : maxout too big %u\n",addr,output[doff][0]);
+        exit(1);
+    }
+    //pop(r16)
+    output[doff][x+1]=0x0240;
+    //0000 0000 010d dddd                                               "; b r%i{d}"
+    //b r16
+    output[doff][x+2]=0x0040|16;
 }
 //-------------------------------------------------------------------
 void pop ( unsigned int rd )
@@ -891,6 +951,23 @@ void str ( unsigned int dat_reg, unsigned int add_reg, unsigned int offset )
     show_output();
 }
 //-------------------------------------------------------------------
+void strb ( unsigned int dat_reg, unsigned int add_reg, unsigned int offset )
+{
+//1010 0010 ww1d dddd   ssss suuu uuuu uuuu                           "; st%s{w} r%i{d}, 0x%x{u}(r%i{s})"
+//          00 str
+//          01 strh
+//          10 strb
+//1010 0010 1010
+
+    dat_reg=adreg(dat_reg);
+    add_reg=adreg(add_reg);
+
+    output[doff][0]=2;
+    output[doff][1]=0xA2A0|dat_reg;
+    output[doff][2]=(add_reg<<11)|offset;
+
+    show_output();
+}//-------------------------------------------------------------------
 void sub1u ( unsigned int rd, unsigned int u )
 {
     //1011 00pp pppd dddd  iiii iiii iiii iiii                           "; %s{p} r%i{d}, #0x%04x{i}"
@@ -984,6 +1061,8 @@ int main ( int argc, char *argv[] )
     unsigned int datalen;
     unsigned int halfadd;
     unsigned int inst;
+    unsigned int prev;
+    unsigned int next;
     unsigned int ra,rb,rd,rn;
     unsigned int rm,rs,rc;
     unsigned int addr;
@@ -1091,6 +1170,20 @@ int main ( int argc, char *argv[] )
             {
                 run=0;
             }
+
+
+
+            //POP
+            if((inst&0xFE00)==0xBC00)
+            {
+                if(inst&0x100)
+                {
+                    run=0;
+                }
+            }
+
+
+
             if(run) addhit((doff+1)<<1);
 
         }
@@ -1105,11 +1198,20 @@ int main ( int argc, char *argv[] )
             if(hit[doff]==0) continue;
             inst=data[doff];
             addr=doff2addr(doff);
+            if(doff)
+            {
+                if(hit[doff-1]) prev=data[doff-1];
+                else prev=0xE801;
+            }
+            else     prev=0xE801; //undefined
+            if(hit[doff+1]) next=data[doff+1];
+            else next=0xE801;
 
-            printf("\n//[0x%06X] 0x%04X  ",addr,inst);
+            if(pass) printf("\n");
+            printf("//[0x%06X] 0x%04X  ",addr,inst);
 
             //ADC
-            if((inst&0xFFC0)==0x4140)
+            if((inst&0xFFC0)==0x4140) //ADC
             {
                 rd=(inst>>0)&0x07;
                 rm=(inst>>3)&0x07;
@@ -1126,6 +1228,7 @@ int main ( int argc, char *argv[] )
                 if(rb)
                 {
                     printf("adds r%u,r%u,#0x%X\n",rd,rn,rb);
+                    pc2u(P_ADD,CC_UN,rd,rn,rb);
                     continue;
                 }
                 else
@@ -1187,6 +1290,7 @@ int main ( int argc, char *argv[] )
                 rd=(inst>>8)&0x7;
                 rb<<=2;
                 printf("add r%u,SP,#0x%02X\n",rd,rb);
+                pc2u(P_ADD,CC_UN,rd,13,rb);
                 continue;
             }
 
@@ -1196,11 +1300,12 @@ int main ( int argc, char *argv[] )
                 rb=(inst>>0)&0x7F;
                 rb<<=2;
                 printf("add SP,#0x%02X\n",rb);
+                pc2u(P_ADD,CC_UN,13,13,rb);
                 continue;
             }
 
             //AND
-            if((inst&0xFFC0)==0x4000)
+            if((inst&0xFFC0)==0x4000) //AND
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1220,7 +1325,7 @@ int main ( int argc, char *argv[] )
             }
 
             //ASR(2) two register
-            if((inst&0xFFC0)==0x4100)
+            if((inst&0xFFC0)==0x4100) //ASR
             {
                 rd=(inst>>0)&0x07;
                 rs=(inst>>3)&0x07;
@@ -1230,6 +1335,22 @@ int main ( int argc, char *argv[] )
             //B(1) conditional branch
             if((inst&0xF000)==0xD000)
             {
+                if(branch[doff])
+                {
+                    printf("//this is a branch destination!\n");
+                }
+                ra=0;
+                //CMP(1) compare immediate
+                if((prev&0xF800)==0x2800) ra=1;
+                //CMP(3) compare high register
+                if((prev&0xFF00)==0x4500) ra=1;
+                //CMP(2) compare register
+                if((prev&0xFFC0)==0x4280) ra=1;
+                //if((prev&0xFFC0)==0x4200) ra=1; //TST
+                if(ra==0)
+                {
+                    printf("\n//WARNING WARNING previous is not a handled cmp 0x%04X\n//",prev);
+                }
                 rb=(inst>>0)&0xFF;
                 if(rb&0x80) rb|=(~0)<<8;
                 op=(inst>>8)&0xF;
@@ -1255,11 +1376,13 @@ int main ( int argc, char *argv[] )
                         case 0x2: //b cs c set
                         {
                             printf("bcs 0x%08X\n",rb);
+                            bxx(CC_LO,rb); //C IS OPPOSITE ARM
                             break;
                         }
                         case 0x3: //b cc c clear
                         {
                             printf("bcc 0x%08X\n",rb);
+                            bxx(CC_HS,rb); //C IS OPPOSITE ARM
                             break;
                         }
 
@@ -1391,7 +1514,7 @@ int main ( int argc, char *argv[] )
 
 
             //CMN
-            if((inst&0xFFC0)==0x42C0)
+            if((inst&0xFFC0)==0x42C0) //CMN
             {
                 rn=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1410,7 +1533,7 @@ int main ( int argc, char *argv[] )
             }
 
             //CMP(2) compare register
-            if((inst&0xFFC0)==0x4280)
+            if((inst&0xFFC0)==0x4280) //CMP
             {
                 rn=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1441,7 +1564,7 @@ int main ( int argc, char *argv[] )
 
 
             //BIC
-            if((inst&0xFFC0)==0x4380)
+            if((inst&0xFFC0)==0x4380) //BIC
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1501,17 +1624,9 @@ int main ( int argc, char *argv[] )
                 rd=(inst>>8)&0x07;
                 rb<<=2;
                 printf("ldr r%u,[SP+#0x%X]\n",rd,rb);
+                ldr(rd,13,rb);
                 continue;
             }
-
-
-
-
-
-
-
-
-
 
             //STR(1)
             if((inst&0xF800)==0x6000)
@@ -1542,15 +1657,26 @@ int main ( int argc, char *argv[] )
                 rd=(inst>>8)&0x07;
                 rb<<=2;
                 printf("str r%u,[SP,#0x%X]\n",rd,rb);
+                str(rd,13,rb);
+                continue;
+            }
+
+            //STRB(1)
+            if((inst&0xF800)==0x7000)
+            {
+                rd=(inst>>0)&0x07;
+                rn=(inst>>3)&0x07;
+                rb=(inst>>6)&0x1F;
+                printf("strb r%u,[r%u,#0x%X]\n",rd,rn,rb);
+                strb(rd,rn,rb);
                 continue;
             }
 
 
 
 
-
             //EOR
-            if((inst&0xFFC0)==0x4040)
+            if((inst&0xFFC0)==0x4040) //EOR
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1564,16 +1690,45 @@ int main ( int argc, char *argv[] )
             //LSL(1)
             if((inst&0xF800)==0x0000)
             {
+                unsigned int x;
+
                 rd=(inst>>0)&0x07;
                 rm=(inst>>3)&0x07;
                 rb=(inst>>6)&0x1F;
                 printf("lsls r%u,r%u,#0x%X\n",rd,rm,rb);
-                pc2u(P_LSL,CC_UN,rd,rm,rb);
+                //pc2u(P_LSL,CC_UN,rd,rm,rb);
+                x=0;
+                if(rd==rm)
+                {
+                    x+=build_q4d5u(Q_LSL,rd,rb,&output[doff][x+1]);
+                }
+                else
+                {
+                    x+=build_pc5dai(P_LSL,CC_UN,rd,rm,rb,&output[doff][x+1]);
+                }
+                if(hit[doff+1])
+                {
+                    if((data[doff+1]&0xF000)==0xD000)
+                    {
+                        switch(data[doff+1]&0x0F00)
+                        {
+                            case 0x0400: //b mi n set
+                            case 0x0500: //b pl n clear
+                            {
+                                x+=build_q4d5u(Q_CMP,rd,0,&output[doff][x+1]);
+                                break;
+                            }
+                        }
+                    }
+                }
+                output[doff][0]=x;
+                show_output();
                 continue;
             }
 
+
             //LSL(2) two register
-            if((inst&0xFFC0)==0x4080)
+            if((inst&0xFFC0)==0x4080) //LSL
             {
                 rd=(inst>>0)&0x07;
                 rs=(inst>>3)&0x07;
@@ -1589,11 +1744,12 @@ int main ( int argc, char *argv[] )
                 rm=(inst>>3)&0x07;
                 rb=(inst>>6)&0x1F;
                 printf("lsrs r%u,r%u,#0x%X\n",rd,rm,rb);
+                pc2u(P_LSR,CC_UN,rd,rm,rb);
                 continue;
             }
 
             //LSR(2) two register
-            if((inst&0xFFC0)==0x40C0)
+            if((inst&0xFFC0)==0x40C0) //LSR
             {
                 rd=(inst>>0)&0x07;
                 rs=(inst>>3)&0x07;
@@ -1612,7 +1768,7 @@ int main ( int argc, char *argv[] )
                 continue;
             }
             //MOV(2) two low registers
-            if((inst&0xFFC0)==0x1C00)
+            if((inst&0xFFC0)==0x1C00) //MOV
             {
                 rd=(inst>>0)&7;
                 rn=(inst>>3)&7;
@@ -1631,7 +1787,7 @@ int main ( int argc, char *argv[] )
                 continue;
             }
             //MVN
-            if((inst&0xFFC0)==0x43C0)
+            if((inst&0xFFC0)==0x43C0) //MVN
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1641,7 +1797,7 @@ int main ( int argc, char *argv[] )
             }
 
             //NEG
-            if((inst&0xFFC0)==0x4240)
+            if((inst&0xFFC0)==0x4240) //NEG
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1650,7 +1806,7 @@ int main ( int argc, char *argv[] )
             }
 
             //ORR
-            if((inst&0xFFC0)==0x4300)
+            if((inst&0xFFC0)==0x4300) //ORR
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1663,7 +1819,7 @@ int main ( int argc, char *argv[] )
 
 
             //ROR
-            if((inst&0xFFC0)==0x41C0)
+            if((inst&0xFFC0)==0x41C0) //ROR
             {
                 rd=(inst>>0)&0x7;
                 rs=(inst>>3)&0x7;
@@ -1672,7 +1828,7 @@ int main ( int argc, char *argv[] )
             }
 
             //SBC
-            if((inst&0xFFC0)==0x4180)
+            if((inst&0xFFC0)==0x4180) //SBC
             {
                 rd=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1725,7 +1881,7 @@ int main ( int argc, char *argv[] )
             }
 
             //TST
-            if((inst&0xFFC0)==0x4200)
+            if((inst&0xFFC0)==0x4200) //TST
             {
                 rn=(inst>>0)&0x7;
                 rm=(inst>>3)&0x7;
@@ -1768,6 +1924,7 @@ int main ( int argc, char *argv[] )
                 if(inst&0x100)
                 {
                     //pop pc
+                    poppc();
                 }
                 show_output();
                 continue;

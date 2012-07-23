@@ -199,16 +199,7 @@ void diss ( void )
             q=(inst>>9)&0xF;
             u=(inst>>4)&0x1F;
             rd=inst&0xF;
-            switch(q)
-            {
-                case Q_MOV: printf("mov r%u,#0x%X\n",rd,u); break;
-                case Q_ADD: printf("add r%u,#0x%X\n",rd,u); break;
-                case Q_MUL: printf("mul r%u,#0x%X\n",rd,u); break;
-                case Q_SUB: printf("sub r%u,#0x%X\n",rd,u); break;
-                case Q_MVN: printf("mvn r%u,#0x%X\n",rd,u); break;
-                case Q_CMP: printf("cmp r%u,#0x%X\n",rd,u); break;
-                default: printf("unknown\n"); break;
-            }
+            printf("%s r%u,#0x%X\n",q_name[q],rd,u);
             continue;
         }
 
@@ -231,7 +222,7 @@ void diss ( void )
             x++; dissadd+=2;
             continue;
         }
-        //1010 0010 ww1d dddd ssss suuu uuuu uuuu                         "; st%s{w} r%i{d}, 0x%x{u}(r%i{s})"
+        //1010 0010 ww1d dddd   ssss suuu uuuu uuuu                         "; st%s{w} r%i{d}, 0x%x{u}(r%i{s})"
         if((inst&0xFF20)==0xA220)
         {
             inst2=output[doff][x+1];
@@ -243,8 +234,8 @@ void diss ( void )
             switch(w)
             {
                 case 0: printf("str r%u,(r%u+0x%X)\n",rd,rs,u); break;
-                case 1: printf("strb r%u,(r%u+0x%X)\n",rd,rs,u); break;
-                case 2: printf("strh r%u,(r%u+0x%X)\n",rd,rs,u); break;
+                case 1: printf("strh r%u,(r%u+0x%X)\n",rd,rs,u); break;
+                case 2: printf("strb r%u,(r%u+0x%X)\n",rd,rs,u); break;
                 case 3: printf("strUNKNOWN r%u,(r%u+0x%X)\n",rd,rs,u); break;
             }
             x++; dissadd+=2;

@@ -21,7 +21,6 @@ extern void dummy ( unsigned int );
 int notmain ( void )
 {
     unsigned int ra;
-    unsigned int rb;
 
     ra=GET32(GPFSEL1);
     ra&=~(7<<18);
