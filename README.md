@@ -22,7 +22,7 @@ disassembled raspberry pi gpu machine code is created in its place.
 
 This is not beginner stuff in any way, this is not a generic C compiler
 for the Raspberry Pi gpu.  This is for people are capable of writing
-their programs in both thumb MACHINE CODE and gnu MACHINE CODE but
+their programs in both thumb MACHINE CODE and gpu MACHINE CODE but
 want to save some time.  So far every example has required more work
 on the translator.  It took three clean slate starts to get this far.  I
 just realized that I have been treating immediates as unsigned when they
