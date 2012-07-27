@@ -414,7 +414,7 @@ void pc2u ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, u
         output[doff][2]=0x0040|(ra<<11)|(cc<<7)|(u&0x3F);
     }
     else
-    if(((u&0x7F)==u)&&(rd==ra))
+    if((((u&0xFFFF8000)==0)||((u&0xFFFF8000)==0xFFFF8000))&&(rd==ra)&&(cc==CC_UN))
     {
         //1011 00pp pppd dddd  iiii iiii iiii iiii                           "; %s{p} r%i{d}, #0x%04x{i}"
         output[doff][0]=2;
@@ -423,29 +423,19 @@ void pc2u ( unsigned int p, unsigned int cc, unsigned int rd, unsigned int ra, u
     }
     else
     {
-        printf("untested\n"); //remove once used
-        x=0;
-        output[doff][0]=x;
-        //desired rd = ra op u
-        //mov(rd,ra)
-        //010p pppp ssss dddd                                               "; %s{p} r%i{d}, r%i{s}"
-        if((rd<16)&&(ra<16))
-        {
-            printf("untested\n"); //remove once used
-            x++; output[doff][x]=0x4000|(P_MOV<<8)|(ra<<4)|rd;
-        }
-        else
-        {
-            printf("untested\n"); //remove once used
-            x+=build_pc5dab(P_MOV,CC_UN,rd,ra,ra,&output[doff][x+1]);
-        }
-        //mov(ra,u);
-        //at this point because it needs to be a 32 bit, no shortcut
-        x+=build_p5d16u(P_MOV,ra,u,&output[doff][x+1]);
-        //opcc(rd,ra);
-        x+=build_pc5dab(p,cc,rd,ra,ra,&output[doff][x+1]);
-        //limit check x?  It should be okay
-        output[doff][0]=x;
+printf("//untested\n");
+        output[doff][0]=5;
+        //mov rd,u
+        //rd = ra op rd
+        //1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu       "; %s{p} r%i{d}, #0x%08x{u}"
+        build_p5d32u(P_MOV,rd,u,&output[doff][1]); //uses 3
+        //output[doff][1]
+        //output[doff][2]
+        //output[doff][3]
+        //1100 00pp pppd dddd  aaaa accc c00b bbbb                           "; %s{p}%s{c} r%i{d}, r%i{a}, r%i{b}"
+        build_pc5dab(p,cc,rd,ra,rd,&output[doff][4]); //uses 2
+        //output[doff][4]
+        //output[doff][5]
     }
     show_output();
 }
