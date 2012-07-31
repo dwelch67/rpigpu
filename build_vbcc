@@ -1,0 +1,12 @@
+rm -rf vbcc
+rm -f vbcc.tar.gz
+wget http://www.ibaug.de/vbcc/vbcc.tar.gz
+tar xzvf vbcc.tar.gz
+cd vbcc
+mkdir bin
+#mkdir doc/vbcc.pdf
+texi2dvi --pdf doc/vbcc.texi
+make bin/vc
+echo n | make TARGET=generic bin/vbccgeneric
+#PATH=/path/to/vbcc/bin:$PATH
+#vbccgeneric -c99 -O=32767 -gpr-args=5 program.c
