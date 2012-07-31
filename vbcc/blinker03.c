@@ -1,7 +1,6 @@
 
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-//-------------------------------------------------------------------------
 
 extern void PUT32 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );
@@ -18,30 +17,24 @@ extern void dummy ( unsigned int );
 #define GPSET0          0x7E20001C
 #define GPCLR0          0x7E200028
 
+#define TIMEOUT 0x80000
+
 //-------------------------------------------------------------------------
-void gpio_init ( void )
+int notmain ( void )
 {
     unsigned int ra;
+    unsigned int rb;
 
     ra=GET32(GPFSEL1);
     ra&=~(7<<18);
     ra|=1<<18;
     PUT32(GPFSEL1,ra);
     //PUT32(GPCLR0,1<<16);
-}
-//-------------------------------------------------------------------------
-void timer_init ( void )
-{
+
     PUT32(ARM_TIMER_CTL,0x00120000);
     PUT32(ARM_TIMER_CTL,0x00120200);
-}
-//-------------------------------------------------------------------------
-int notmain ( void )
-{
-    unsigned int ra;
 
-    gpio_init();
-    timer_init();
+    rb=GET32(ARM_TIMER_CNT);
 
     while(1)
     {
@@ -49,14 +42,16 @@ int notmain ( void )
         while(1)
         {
             ra=GET32(ARM_TIMER_CNT);
-            if((ra&0x40000)!=0) break;
+            if((ra-rb)>=TIMEOUT) break;
         }
+        rb+=TIMEOUT;
         PUT32(GPCLR0,1<<16);
         while(1)
         {
             ra=GET32(ARM_TIMER_CNT);
-            if((ra&0x40000)==0) break;
+            if((ra-rb)>=TIMEOUT) break;
         }
+        rb+=TIMEOUT;
     }
     return(0);
 }

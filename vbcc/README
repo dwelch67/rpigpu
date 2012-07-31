@@ -1,0 +1,44 @@
+
+This approach to a Raspberry Pi C compiler is to use the generic
+backend to vbcc
+
+http://www.compilers.de/vbcc.html
+
+And make an assembler for it.
+
+The build_vbcc script downloads and builds the vbcc compiler (generic
+backend).
+
+Note the suggested command line options in the build script as well as
+in the Makefile in this directory.
+
+vbccgeneric -c99 -O=32767 -gpr-args=5 program.c
+
+This is NOT a generic compiler.  It is not as bad as the thumb and mips
+translators which were machine code to machine code.  This is at least
+an invented assembly created by the compiler author.  It took far less
+time to make progress with this one than it did with either the thumb
+or mips and I dont think that was all due to experience with those.
+
+Yes, sure this could just be a backend to the compiler as well, and
+maybe it will be some day.  The compiler has to output something and
+that something is probably assembly of some sort and would need to be
+assembled.  Note that the solution here is to use the tinyasm from the
+videocoreiv repo, basically emit1() and let tinyasm compute the branch
+offsets.  the branches in tinyasm are very limited so some work needs
+to be done there ultimately, for now this works.
+
+Not being a generic compiler.  Here are some rules.  Have to use the
+-gpr-args command line for two reasons, one is because PUT32 and GET32
+are your access to the memory and have hardcoded solutions in the
+"assembler", second I have not yet decoded stack operations which is
+what you would get if you didnt put -gpr-args and the PUT32 and GET32
+solutions are register based not stack based so they wouldnt work.  In
+fact there is at lot more work to be done here.  Eventually enabling
+the three address (three operand) option in the generic backend will
+make for tighter code, etc.
+
+
+
+
+
