@@ -10,7 +10,8 @@
 #define MAXLABELS 2048
 #define LABELLEN 256
 char label[MAXLABELS][LABELLEN];
-char globe[MAXLABELS];
+char pusher[MAXLABELS][LABELLEN];
+unsigned int npushers;
 unsigned int nlabels;
 unsigned int nl;
 
@@ -381,6 +382,11 @@ int parse_puigpr ( unsigned int p )
             fprintf(stderr,"<%u> syntax error\n",line);
             return(1);
         }
+        if(newline[noff]!=0)
+        {
+            fprintf(stderr,"<%u> syntax error\n",line);
+            return(1);
+        }
         newline[noff]=0; //should be already
         for(rb=ra;rb<noff;rb++) if(numchar[(int)newline[rb]]==0) break;
         if(rb<noff)
@@ -422,9 +428,45 @@ int main ( int argc, char *argv[] )
         return(1);
     }
 
+    npushers=0;
+    while(fgets(newline,sizeof(newline)-1,fpin))
+    {
+        for(ra=0;newline[ra];ra++)
+        {
+            if(newline[ra]==0x09) newline[ra]=0x20;
+            if(newline[ra]<0x20) newline[ra]=0;
+        }
+        for(noff=0;newline[noff];noff++) if(newline[noff]!=' ') break;
+        if(strncmp(&newline[noff],"call ",5)==0)
+        {
+            noff+=5;
+            if(newline[noff]!=' ')
+            {
+                if(newline[noff]!=0)
+                {
+                    for(ra=0;ra<npushers;ra++) if(strcmp(&newline[noff],pusher[ra])==0) break;
+                    if(ra<npushers)
+                    {
+                    }
+                    else
+                    {
+                        if(npushers<MAXLABELS)
+                        {
+                            strcpy(pusher[npushers],&newline[noff]);
+                            npushers++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+for(ra=0;ra<npushers;ra++) printf("[%s]\n",pusher[ra]);
 
 
-    memset(globe,0,sizeof(globe));
+
+    rewind(fpin);
+
     nlabels=0;
     tcodes=0;
 
@@ -464,45 +506,19 @@ int main ( int argc, char *argv[] )
             newline[ra]=0;
             ret=check_label(newline); if(ret==0xFFFFFFFF) return(1);
             fprintf(fpout,"label(%s); //---------------------------\n",newline);
-            ret&=0x7FFFFFFF;
-            if(globe[ret])
+            for(ra=0;ra<npushers;ra++) if(strcmp(pusher[ra],newline)==0) break;
+            if(ra<npushers)
             {
-                //fprintf(fpout,"//push r0,lr\n");
-                //ncode=0;
-                //code[ncode++]=0x0380;
-                //show_code();
-
+                fprintf(fpout,"//push r0,lr\n");
+                ncode=0;
+                code[ncode++]=0x0380;
+                show_code();
             }
             continue;
         }
         for(noff=0;newline[noff];noff++) if(newline[noff]!=' ') break;
         if(newline[noff]=='.')
         {
-            if(strncmp(&newline[noff],".global ",8)==0)
-            {
-                noff+=8;
-                if((newline[noff]==0)||(newline[noff]==' '))
-                {
-                    fprintf(stderr,"<%u> syntax error\n",line);
-                    return(1);
-                }
-                ra=noff;
-                for(rb=ra;newline[rb];rb++) if(newline[rb]==' ') break;
-                newline[rb]=0;
-                ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
-                if(ret&0x80000000)
-                {
-                    ret&=0x7FFFFFFF;
-                    globe[ret]=1;
-                }
-                else
-                {
-                    ret&=0x7FFFFFFF;
-                    globe[ret]=1;
-                    //fprintf(stderr,"<%u> label already defined\n",line);
-                    //return(1);
-                }
-            }
             continue;
         }
         if(newline[noff]=='#')
@@ -511,10 +527,10 @@ int main ( int argc, char *argv[] )
         }
         if(strcmp(&newline[noff],"rts")==0) //should not have anything after but null
         {
-            //fprintf(fpout,"//pop r0,pc\n");
-            //ncode=0;
-            //code[ncode++]=0x0300;
-            //show_code();
+            fprintf(fpout,"//pop r0,pc\n");
+            ncode=0;
+            code[ncode++]=0x0300;
+            show_code();
             fprintf(fpout,"//b lr\n");
             ncode=0;
             code[ncode++]=0x005A;
@@ -583,6 +599,12 @@ int main ( int argc, char *argv[] )
                 show_code();
                 continue;
             }
+            if(strcmp(&newline[ra],"_BRANCHTO")==0)
+            {
+                fprintf(fpout,"//TODO BRANCHTO\n");
+                continue;
+            }
+
             ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
             fprintf(fpout,"bl(%s);\n",&newline[ra]);
             continue;
@@ -668,6 +690,51 @@ int main ( int argc, char *argv[] )
             newline[rb]=0;
             ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
             fprintf(fpout,"blo(%s);\n",&newline[ra]);
+            continue;
+        }
+        if(strncmp(&newline[noff],"bge ",4)==0)
+        {
+            noff+=4;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            ra=noff;
+            for(rb=ra;newline[rb];rb++) if(newline[rb]==' ') break;
+            newline[rb]=0;
+            ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
+            fprintf(fpout,"bhs(%s);\n",&newline[ra]);
+            continue;
+        }
+        if(strncmp(&newline[noff],"ble ",4)==0)
+        {
+            noff+=4;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            ra=noff;
+            for(rb=ra;newline[rb];rb++) if(newline[rb]==' ') break;
+            newline[rb]=0;
+            ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
+            fprintf(fpout,"bls(%s);\n",&newline[ra]);
+            continue;
+        }
+        if(strncmp(&newline[noff],"bgt ",4)==0)
+        {
+            noff+=4;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            ra=noff;
+            for(rb=ra;newline[rb];rb++) if(newline[rb]==' ') break;
+            newline[rb]=0;
+            ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
+            fprintf(fpout,"bhi(%s);\n",&newline[ra]);
             continue;
         }
         if(strncmp(&newline[noff],"b ",2)==0)
@@ -757,6 +824,18 @@ int main ( int argc, char *argv[] )
                 return(1);
             }
             parse_puigpr(P_OR);
+            continue;
+        }
+        //srw.ui gpr
+        if(strncmp(&newline[noff],"srw.ui gpr",10)==0)
+        {
+            noff+=10;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            parse_puigpr(P_LSR);
             continue;
         }
 

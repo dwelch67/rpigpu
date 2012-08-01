@@ -43,7 +43,7 @@ extern void ASMDELAY ( unsigned int );
 //alt function 0 for uart0
 //((19,000,000/115200)/8)-1 = 19.6
 //-------------------------------------------------------------------------
-void uart_init ( void )
+static void uart_init ( void )
 {
     unsigned int ra;
 
@@ -72,7 +72,7 @@ void uart_init ( void )
     PUT32(AUX_MU_CNTL_REG,3);
 }
 //-------------------------------------------------------------------------
-unsigned int uart_recv ( void )
+static unsigned int uart_recv ( void )
 {
     while(1)
     {
@@ -81,17 +81,16 @@ unsigned int uart_recv ( void )
     return(GET32(AUX_MU_IO_REG));
 }
 //-------------------------------------------------------------------------
-void uart_send ( unsigned int c )
+static void uart_send ( unsigned int c )
 {
     while(1)
     {
         if(GET32(AUX_MU_LSR_REG)&0x20) break;
     }
     PUT32(AUX_MU_IO_REG,c);
-
 }
 //------------------------------------------------------------------------
-void hexstrings ( unsigned int d )
+static void hexstrings ( unsigned int d )
 {
     //unsigned int ra;
     unsigned int rb;
@@ -109,7 +108,7 @@ void hexstrings ( unsigned int d )
     uart_send(0x20);
 }
 //------------------------------------------------------------------------
-void hexstring ( unsigned int d )
+static void hexstring ( unsigned int d )
 {
     hexstrings(d);
     uart_send(0x0D);

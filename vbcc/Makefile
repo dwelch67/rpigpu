@@ -1,6 +1,6 @@
 
 
-all : blinker02.asm.loader.bin blinker03.asm.loader.bin uart02.asm.loader.bin 
+all : blinker02.asm.loader.bin blinker03.asm.loader.bin uart02.asm.loader.bin
 
 
 genasm : genasm.c diss.c
