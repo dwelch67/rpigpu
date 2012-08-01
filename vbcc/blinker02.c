@@ -19,7 +19,7 @@ extern void dummy ( unsigned int );
 #define GPCLR0          0x7E200028
 
 //-------------------------------------------------------------------------
-void gpio_init ( void )
+static void gpio_init ( void )
 {
     unsigned int ra;
 
@@ -30,7 +30,7 @@ void gpio_init ( void )
     //PUT32(GPCLR0,1<<16);
 }
 //-------------------------------------------------------------------------
-void timer_init ( void )
+static void timer_init ( void )
 {
     PUT32(ARM_TIMER_CTL,0x00120000);
     PUT32(ARM_TIMER_CTL,0x00120200);

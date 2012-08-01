@@ -429,7 +429,7 @@ int main ( int argc, char *argv[] )
     tcodes=0;
 
     fprintf(fpout,"#include \"tinyasm.c\"\n");
-    fprintf(fpout,"START(\"blinker02.loader.bin\");\n");
+    fprintf(fpout,"START(\"%s.loader.bin\");\n",argv[1]);
     fprintf(fpout,"fillb(0x200, 0);\n");
     check_label("_notmain");
     fprintf(fpout,"b(_notmain);\n");
@@ -515,9 +515,6 @@ int main ( int argc, char *argv[] )
             ncode=0;
             code[ncode++]=0x0300;
             show_code();
-    ncode=0;
-    code[ncode++]=0x005A;
-//    show_code();
             continue;
         }
         if(strncmp(&newline[noff],"call ",5)==0)
@@ -622,6 +619,21 @@ int main ( int argc, char *argv[] )
             fprintf(fpout,"bne(%s);\n",&newline[ra]);
             continue;
         }
+        if(strncmp(&newline[noff],"blt ",4)==0)
+        {
+            noff+=4;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            ra=noff;
+            for(rb=ra;newline[rb];rb++) if(newline[rb]==' ') break;
+            newline[rb]=0;
+            ret=check_label(&newline[ra]); if(ret==0xFFFFFFFF) return(1);
+            fprintf(fpout,"blo(%s);\n",&newline[ra]);
+            continue;
+        }
         if(strncmp(&newline[noff],"b ",2)==0)
         {
             noff+=2;
@@ -661,6 +673,42 @@ int main ( int argc, char *argv[] )
                 return(1);
             }
             parse_puigpr(P_AND);
+            continue;
+        }
+        //add.ui gpr
+        if(strncmp(&newline[noff],"add.ui gpr",10)==0)
+        {
+            noff+=10;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            parse_puigpr(P_ADD);
+            continue;
+        }
+        //sub.ui gpr
+        if(strncmp(&newline[noff],"sub.ui gpr",10)==0)
+        {
+            noff+=10;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            parse_puigpr(P_SUB);
+            continue;
+        }
+        //cmp.ui gpr
+        if(strncmp(&newline[noff],"cmp.ui gpr",10)==0)
+        {
+            noff+=10;
+            if((newline[noff]==0)||(newline[noff]==' '))
+            {
+                fprintf(stderr,"<%u> syntax error\n",line);
+                return(1);
+            }
+            parse_puigpr(P_CMP);
             continue;
         }
         //or.ui gpr

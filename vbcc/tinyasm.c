@@ -53,6 +53,7 @@ int main(int argc, char *argv) {
 //0001 1ccc cooo oooo                                               "; b%s{c} 0x%08x{$+o*2}"
 #define beq(label)          emit1(0x1800|(0x0<<7)|((((label)-__pc__)/2)&0x7f))
 #define bne(label)          emit1(0x1800|(0x1<<7)|((((label)-__pc__)/2)&0x7f))
+#define blo(label)          emit1(0x1800|(0x2<<7)|((((label)-__pc__)/2)&0x7f))
 #define b(label)            emit1(0x1800|(0xE<<7)|((((label)-__pc__)/2)&0x7f))
 #define bl(label)           do { int o = ((label)-__pc__)/2; emit2(0x9080|((o>>16)&0x0f7f), o&0xffff); } while(0)
 #define rts()               emit1(0x005a)
