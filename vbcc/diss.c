@@ -14,6 +14,7 @@ void diss ( void )
     unsigned int cc;
     unsigned int ra,rb;
     unsigned int rs;
+    int sa;
 
         inst=code[0];
         fprintf(fpout,"//0x%04X ",inst);
@@ -127,6 +128,20 @@ void diss ( void )
             return;
         }
 
+
+
+        //0001 1ccc cooo oooo                                               "; b%s{c} 0x%08x{$+o*2}"
+        if((inst&0xF800)==0x1800)
+        {
+            cc=(inst>>7)&0xF;
+            sa=inst&0x7F;
+            if(sa&0x40) sa|=(~0)<<7;
+            fprintf(fpout,"b%s %d\n",cc_name[cc],sa);
+            return;
+        }
+
+
+
         //0010 uuuu ssss dddd                                               "; ld  r%i{d}, 0x%02x{u*4}(r%i{s})"
         if((inst&0xF000)==0x2000)
         {
@@ -156,27 +171,7 @@ void diss ( void )
             p=(inst>>8)&0x1F;
             rs=(inst>>4)&0xF;
             rd=inst&0xF;
-            switch(p)
-            {
-                case P_MOV: fprintf(fpout,"mov r%u,r%u\n",rd,rs); break;
-                case P_CMN: fprintf(fpout,"cmn r%u,r%u\n",rd,rs); break;
-                case P_ADD: fprintf(fpout,"add r%u,r%u\n",rd,rs); break;
-                case P_BIC: fprintf(fpout,"bic r%u,r%u\n",rd,rs); break;
-                case P_MUL: fprintf(fpout,"mul r%u,r%u\n",rd,rs); break;
-                case P_EOR: fprintf(fpout,"eor r%u,r%u\n",rd,rs); break;
-                case P_SUB: fprintf(fpout,"sub r%u,r%u\n",rd,rs); break;
-                case P_AND: fprintf(fpout,"and r%u,r%u\n",rd,rs); break;
-                case P_MVN: fprintf(fpout,"mvn r%u,r%u\n",rd,rs); break;
-                case P_ROR: fprintf(fpout,"ror r%u,r%u\n",rd,rs); break;
-                case P_CMP: fprintf(fpout,"cmp r%u,r%u\n",rd,rs); break;
-                case P_RSB: fprintf(fpout,"rsb r%u,r%u\n",rd,rs); break;
-
-                case P_OR: fprintf(fpout,"or r%u,r%u\n",rd,rs); break;
-
-
-
-                default: fprintf(fpout,"not done yet\n"); break;
-            }
+            fprintf(fpout,"%s r%u,r%u\n",p_name[p],rd,rs);
             return;
         }
 

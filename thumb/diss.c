@@ -136,27 +136,7 @@ void diss ( void )
             p=(inst>>8)&0x1F;
             rs=(inst>>4)&0xF;
             rd=inst&0xF;
-            switch(p)
-            {
-                case P_MOV: printf("mov r%u,r%u\n",rd,rs); break;
-                case P_CMN: printf("cmn r%u,r%u\n",rd,rs); break;
-                case P_ADD: printf("add r%u,r%u\n",rd,rs); break;
-                case P_BIC: printf("bic r%u,r%u\n",rd,rs); break;
-                case P_MUL: printf("mul r%u,r%u\n",rd,rs); break;
-                case P_EOR: printf("eor r%u,r%u\n",rd,rs); break;
-                case P_SUB: printf("sub r%u,r%u\n",rd,rs); break;
-                case P_AND: printf("and r%u,r%u\n",rd,rs); break;
-                case P_MVN: printf("mvn r%u,r%u\n",rd,rs); break;
-                case P_ROR: printf("ror r%u,r%u\n",rd,rs); break;
-                case P_CMP: printf("cmp r%u,r%u\n",rd,rs); break;
-                case P_RSB: printf("rsb r%u,r%u\n",rd,rs); break;
-
-                case P_OR: printf("or r%u,r%u\n",rd,rs); break;
-
-
-
-                default: printf("not done yet\n"); break;
-            }
+            printf("%s r%u,r%u\n",p_name[p],rd,rs); break;
             continue;
         }
 

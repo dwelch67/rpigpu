@@ -437,7 +437,7 @@ int main ( int argc, char *argv[] )
     //fprintf(fpout,"label(hang); //---------------------------\n");
     //fprintf(fpout,"b(hang);\n");
 
-
+    //0x1F00 is branch to self...
 
     line=0;
     while(fgets(newline,sizeof(newline)-1,fpin))
@@ -467,10 +467,10 @@ int main ( int argc, char *argv[] )
             ret&=0x7FFFFFFF;
             if(globe[ret])
             {
-                fprintf(fpout,"//push r0,lr\n");
-                ncode=0;
-                code[ncode++]=0x0380;
-                show_code();
+                //fprintf(fpout,"//push r0,lr\n");
+                //ncode=0;
+                //code[ncode++]=0x0380;
+                //show_code();
 
             }
             continue;
@@ -511,9 +511,13 @@ int main ( int argc, char *argv[] )
         }
         if(strcmp(&newline[noff],"rts")==0) //should not have anything after but null
         {
-            fprintf(fpout,"//pop r0,pc\n");
+            //fprintf(fpout,"//pop r0,pc\n");
+            //ncode=0;
+            //code[ncode++]=0x0300;
+            //show_code();
+            fprintf(fpout,"//b lr\n");
             ncode=0;
-            code[ncode++]=0x0300;
+            code[ncode++]=0x005A;
             show_code();
             continue;
         }
@@ -544,6 +548,38 @@ int main ( int argc, char *argv[] )
                 //0000 1ww1 ssss dddd         "; st%s{w} r%i{d}, (r%i{s})"
                 ncode=0;
                 code[ncode++]=0x0934;
+                show_code();
+                continue;
+            }
+            if(strcmp(&newline[ra],"_PUT8")==0)
+            {
+                fprintf(fpout,"// strb r4,0(r3)\n");
+                //0000 1ww1 ssss dddd         "; st%s{w} r%i{d}, (r%i{s})"
+                ncode=0;
+                code[ncode++]=0x0D34;
+                show_code();
+                continue;
+            }
+            if(strcmp(&newline[ra],"_dummy")==0)
+            {
+                continue;
+            }
+            if(strcmp(&newline[ra],"_ASMDELAY")==0)
+            {
+                //sub r3,1
+                //011q qqqu uuuu dddd      "; %s{q} r%i{d}, #%i{u}"
+                ncode=0;
+                code[ncode++]=0x6000|(Q_SUB<<9)|(1<<4)|3;
+                show_code();
+                //cmp r3,0
+                //011q qqqu uuuu dddd     "; %s{q} r%i{d}, #%i{u}"
+                ncode=0;
+                code[ncode++]=0x6000|(Q_CMP<<9)|(0<<4)|3;
+                show_code();
+                //bne -2
+                //0001 1ccc cooo oooo  "; b%s{c} 0x%08x{$+o*2}"
+                ncode=0;
+                code[ncode++]=0x1800|(CC_NE<<7)|0x7E;
                 show_code();
                 continue;
             }
@@ -731,7 +767,7 @@ int main ( int argc, char *argv[] )
 
 
     fprintf(fpout,"END\n");
-    fprintf(fpout,"//tcodes 0x%X, %u\n",tcodes,tcodes);
+    fprintf(stderr,"//tcodes 0x%X, %u\n",tcodes,tcodes);
 
     fclose(fpout);
     fclose(fpin);

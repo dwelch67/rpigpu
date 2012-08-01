@@ -308,6 +308,18 @@ void show_output ( void )
     }
 }
 //-------------------------------------------------------------------
+unsigned int build_p5d32u ( unsigned int p, unsigned int rd, unsigned int u, unsigned short *out )
+{
+    //1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu    "; %s{p} r%i{d}, #0x%08x{u}"
+    p&=0x1F;
+    rd&=0x1F;
+    u&=0xFFFFFFFF;
+    out[0]=0xE800|(p<<5)|rd;
+    out[1]=u&0xFFFF;
+    out[2]=(u>>16)&0xFFFF;
+    return(3);
+}
+//-------------------------------------------------------------------
 unsigned int build_p5d16u ( unsigned int p, unsigned int rd, unsigned int u, unsigned short *out )
 {
     //1110 10pp pppd dddd  uuuu uuuu uuuu uuuu  uuuu uuuu uuuu uuuu    "; %s{p} r%i{d}, #0x%08x{u}"
